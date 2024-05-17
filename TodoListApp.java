@@ -3,7 +3,6 @@ package pero;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,7 +30,14 @@ public class TodoListApp extends JFrame {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public TodoListApp() {
-        
+        initializeComponents();
+        loadTasksFromFile();
+        setupLayout();
+        setupListeners();
+        setFrameProperties();
+    }
+
+    private void initializeComponents() {
         taskListModel = new DefaultListModel<>();
         taskList = new JList<>(taskListModel);
         taskList.setCellRenderer(new TaskCellRenderer());
@@ -45,11 +51,9 @@ public class TodoListApp extends JFrame {
         addButton = new JButton("Add Task");
         removeButton = new JButton("Remove Task");
         saveButton = new JButton("Save Tasks");
+    }
 
-        
-        loadTasksFromFile();
-
-        // Set up the layout
+    private void setupLayout() {
         setLayout(new BorderLayout());
         add(new JScrollPane(taskList), BorderLayout.CENTER);
 
@@ -64,63 +68,56 @@ public class TodoListApp extends JFrame {
         panel.add(removeButton);
         panel.add(saveButton);
         add(panel, BorderLayout.SOUTH);
+    }
 
-        // Add action listeners
+    private void setupListeners() {
         dateCheckBox.addActionListener(e -> dateField.setEnabled(dateCheckBox.isSelected()));
         timeCheckBox.addActionListener(e -> timeField.setEnabled(timeCheckBox.isSelected()));
 
-        addButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String taskText = taskField.getText();
-                LocalDateTime dateTime = null;
+        addButton.addActionListener(this::handleAddButton);
+        removeButton.addActionListener(this::handleRemoveButton);
+        saveButton.addActionListener(this::handleSaveButton);
+    }
 
-                if (!taskText.isEmpty()) {
-                    try {
-                        if (dateCheckBox.isSelected() && !dateField.getText().isEmpty()) {
-                            LocalDate date = LocalDate.parse(dateField.getText(), DATE_FORMATTER);
-                            LocalTime time = LocalTime.MIN;
-                            if (timeCheckBox.isSelected() && !timeField.getText().isEmpty()) {
-                                time = LocalTime.parse(timeField.getText(), TIME_FORMATTER);
-                            }
-                            dateTime = LocalDateTime.of(date, time);
-                        }
-                        Task task = new Task(taskText, dateTime);
-                        taskListModel.addElement(task);
-                        sortTasks();
-                        taskField.setText("");
-                        dateField.setText("");
-                        timeField.setText("");
-                    } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(TodoListApp.this, "Invalid date or time format.");
+    private void handleAddButton(ActionEvent e) {
+        String taskText = taskField.getText();
+        LocalDateTime dateTime = null;
+
+        if (!taskText.isEmpty()) {
+            try {
+                if (dateCheckBox.isSelected() && !dateField.getText().isEmpty()) {
+                    LocalDate date = LocalDate.parse(dateField.getText(), DATE_FORMATTER);
+                    LocalTime time = LocalTime.MIN;
+                    if (timeCheckBox.isSelected() && !timeField.getText().isEmpty()) {
+                        time = LocalTime.parse(timeField.getText(), TIME_FORMATTER);
                     }
+                    dateTime = LocalDateTime.of(date, time);
                 }
+                Task task = new Task(taskText, dateTime);
+                taskListModel.addElement(task);
+                sortTasks();
+                clearInputFields();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date or time format.");
             }
-        });
+        }
+    }
 
-        removeButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int selectedIndex = taskList.getSelectedIndex();
-                if (selectedIndex != -1) {
-                    taskListModel.remove(selectedIndex);
-                }
-            }
-        });
+    private void handleRemoveButton(ActionEvent e) {
+        int selectedIndex = taskList.getSelectedIndex();
+        if (selectedIndex != -1) {
+            taskListModel.remove(selectedIndex);
+        }
+    }
 
-        saveButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                saveTasksToFile();
-            }
-        });
+    private void handleSaveButton(ActionEvent e) {
+        saveTasksToFile();
+    }
 
-        // Set frame properties
-        setTitle("To-Do List");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(700, 400);
-        setLocationRelativeTo(null);
-        setVisible(true);
+    private void clearInputFields() {
+        taskField.setText("");
+        dateField.setText("");
+        timeField.setText("");
     }
 
     private void sortTasks() {
@@ -142,10 +139,7 @@ public class TodoListApp extends JFrame {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(";", 2);
-                LocalDateTime dateTime = null;
-                if (!parts[0].isEmpty()) {
-                    dateTime = LocalDateTime.parse(parts[0], DATE_TIME_FORMATTER);
-                }
+                LocalDateTime dateTime = parts[0].isEmpty() ? null : LocalDateTime.parse(parts[0], DATE_TIME_FORMATTER);
                 String taskText = parts[1];
                 taskListModel.addElement(new Task(taskText, dateTime));
             }
@@ -168,14 +162,22 @@ public class TodoListApp extends JFrame {
         }
     }
 
+    private void setFrameProperties() {
+        setTitle("To-Do List");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(700, 400);
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(TodoListApp::new);
     }
 }
 
 class Task {
-    private String task;
-    private LocalDateTime dateTime;
+    private final String task;
+    private final LocalDateTime dateTime;
 
     public Task(String task, LocalDateTime dateTime) {
         this.task = task;
